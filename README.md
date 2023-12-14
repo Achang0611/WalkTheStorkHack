@@ -35,4 +35,8 @@ python start.py
  - 經過程式計算，會自動控制左右按鍵，達到平衡功能。
  - 按下'q'鍵退出程式。
 
-## 
+## 科技
+OpenCV - 物件追蹤
+Mss - 畫面擷取
+PyDirectInput - 按鍵模擬
+Pillow (PIL) - 圖片轉換
