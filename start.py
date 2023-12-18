@@ -1,23 +1,23 @@
 import threading
-from time import sleep
 
 import cv2
 import numpy as np
 import pydirectinput
 from mss import mss
 from PIL import Image
+from ultralytics import YOLO
+from ultralytics.utils.plotting import Annotator
 
 
-def pick_sct():
-  img = get_bbox_sct_img({'left': 0, 'top': 0, 'width': 1920, 'height': 1080})
-  bbox = cv2.selectROI("pick screen range", img, fromCenter=False, showCrosshair=True) 
-  cv2.destroyWindow("pick screen range")
-  cv2.waitKey(250)
-  bbox = {"left": bbox[0], "top": bbox[1], "width": bbox[2], "height": bbox[3]}
-  return bbox
+def press_left():
+  pydirectinput.press("left")
+  
+def press_right():
+  pydirectinput.press("right")
 
 def get_bbox_sct_img(box):
-  # box = {'left': 556, 'top': 176, 'width': 820, 'height': 616}
+  x, y, w, h = box
+  box = (x, y, x + w, y + h)
   sct = mss().grab(box)
   img = Image.frombytes(
             "RGB", 
@@ -28,121 +28,61 @@ def get_bbox_sct_img(box):
   img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
   return img
 
-def hold(key, secs):
-  pydirectinput.keyDown(key)
-  sleep(secs)
-  pydirectinput.keyUp(key)
+model = YOLO("../runs/detect/train/weights/best.pt")
+sct = mss()
+path = "C:/Users/acer/Desktop/project/Python/walk_the_stork_hacker/assets/dock_1.gif"
+# model.predict("C:/Users/acer/Desktop/project/Python/walk_the_stork_hacker/assets/dock_1.gif", save=True)
+cap = cv2.VideoCapture(path)
 
-def go_left():
-  global stop_flag
-  while not stop_flag:
-    global left_flag
-    global x_error
-    global last_error
-    if left_flag:
-      diff = last_error - x_error
-      print(diff)
-      if diff <= 0:
-        print("順偏正")
-        continue
-      else:
-        print("逆偏正")
-        hold("left", 0)
-      # pydirectinput.press("left")
-      # print("left ", x_error)
-      continue
-    sleep(0.001)
+screen = get_bbox_sct_img((0, 0, 1920, 1080))
+game_bbox = cv2.selectROI("Game area", screen)
+cv2.destroyWindow("Game area")
+print("game bbox: ", game_bbox)
+scale_x, scale_y = (0.551, 0.478)
+center_x, center_y = (game_bbox[2] * scale_x, game_bbox[3] * scale_y)
+head_center = (int(center_x), int(center_y))
 
-def go_right():
-  global stop_flag
-  while not stop_flag:
-    global right_flag
-    global x_error
-    global last_error
-    if right_flag:
-      diff = last_error - x_error
-      print(diff)
-      if diff >= 0:
-        print("順偏正")
-        continue
-      else:
-        print("逆偏正")
-        hold("right", 0)
-      # pydirectinput.press("right")
-      # print("right ", x_error)
-      continue
-    sleep(0.001)
+last_cx = 0
 
-left_flag = False
-right_flag = False
-x_error = 0
-last_error = 0
-stop_flag = False
-
-def main():
-  img_set = cv2.VideoCapture("./assets/dock_1.gif")
+while True:
+  # ret, img = cap.read()
+  # if not ret:
+  #   break
+  img = get_bbox_sct_img(game_bbox)
   
-  tracker = cv2.legacy.TrackerCSRT.create()
-  capture_bbox = pick_sct()
-  # capture_bbox = {'left': 189, 'top': 177, 'width': 657, 'height': 494}
-  print(capture_bbox)
-  # ret, img = image_set.read()
-  img = get_bbox_sct_img(capture_bbox)
-  
-  init_bbox = cv2.selectROI("select target", img, fromCenter=True, showCrosshair=True)
-  cv2.destroyWindow("select target")
-  cv2.waitKey(250)
-  tracker.init(img, init_bbox)
-  
-  left_thread = threading.Thread(target=go_left).start()
-  right_thread = threading.Thread(target=go_right).start()
-  
-  while True:
-    # ret, img = image_set.read()
-    # if not ret:
-    #   break
-    img = get_bbox_sct_img(capture_bbox)
-    
-    x, y, w, h = [int(e) for e in init_bbox]
-    init_center = (x + int(w / 2), y + int(h / 2))
-    cv2.circle(img, init_center, 10, (0, 0, 255), 2)
-    
-    ok, bbox = tracker.update(img)
-    x, y, w, h = [int(v) for v in bbox]
-    dock_center = (x + int(w / 2), y + int(h / 2))
-    cv2.circle(img, dock_center, 10, (255, 0, 0), 2)
+  annotator = Annotator(img)
+  results = model(img)
+  for result in results:
+    for box in result.boxes:
+      annotator.box_label(box.xyxy[0], f"{result.names[int(box.cls)]} {float(box.conf):.2}")
       
-    init = np.array(init_center)
-    dock = np.array(dock_center)
-    error = init - dock 
-    
-    global left_flag
-    global right_flag
-    global x_error
-    global last_error
-    left_flag = error[0] < -5
-    right_flag = error[0] > 5
-    last_error = x_error
-    x_error = error[0]
-    
-    # if error[0] < 0:
-    #   # print("鴨頭在右邊 往左走")
-    #   threading.Thread(target = go_left).start()
-    # else:
-    #   # print("鴨頭在左邊 往右走")
-    #   # threading.Thread(target = lambda: pydirectinput.press("left")).start()
-    #   threading.Thread(target = go_right).start()
-    
-    cv2.imshow("image", img)
-    key = cv2.waitKey(1)
-    if key == ord("q"):
-      break
-    elif key == ord("w"):
-      tracker = cv2.legacy.TrackerCSRT.create()
-      tracker.init(img, init_bbox)
+      x1, y1, x2, y2 = box.xyxy[0].tolist()
+      cx, cy = (int((x1 + x2) / 2), int((y1 + y2) / 2))
+      cv2.line(img, (cx, cy), head_center, (255, 0, 0), 2)
+      
+      error_x = cx - head_center[0]
+      error_cx = cx - last_cx
+      if error_x > 0:
+        # 頭偏右
+        if error_cx < 0:
+          # 頭有往左回正的趨勢 不需要操作
+          pass
+        else:
+          threading.Thread(target=press_left).start()
+      if error_x < 0:
+        if error_cx < 0:
+          # 頭有往左倒的趨勢
+          threading.Thread(target=press_right).start()
+        else:
+          pass
+      
+      last_cx = cx
+      
   
-  global stop_flag
-  stop_flag = True
+  cv2.circle(img, head_center, 10, (0, 255, 0), 2)
+  
+  cv2.imshow("img", img)
+  if cv2.waitKey(1) == ord('q'):
+    break
 
-if __name__ == "__main__":
-  main()
+cv2.destroyAllWindows()
