@@ -36,7 +36,8 @@ python start.py
  - 按下'q'鍵退出程式。
 
 ## 科技
-OpenCV - 物件追蹤
-Mss - 畫面擷取
-PyDirectInput - 按鍵模擬
-Pillow (PIL) - 圖片轉換
+- YOLOv8 - 物件偵測
+- OpenCV - 視覺化
+- Mss - 畫面擷取
+- PyDirectInput - 按鍵模擬
+- Pillow (PIL) - 圖片轉換
