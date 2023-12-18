@@ -30,9 +30,6 @@ def get_bbox_sct_img(box):
 
 model = YOLO("../runs/detect/train/weights/best.pt")
 sct = mss()
-path = "C:/Users/acer/Desktop/project/Python/walk_the_stork_hacker/assets/dock_1.gif"
-# model.predict("C:/Users/acer/Desktop/project/Python/walk_the_stork_hacker/assets/dock_1.gif", save=True)
-cap = cv2.VideoCapture(path)
 
 screen = get_bbox_sct_img((0, 0, 1920, 1080))
 game_bbox = cv2.selectROI("Game area", screen)
